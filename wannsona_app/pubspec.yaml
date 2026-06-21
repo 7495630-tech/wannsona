@@ -36,7 +36,14 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.6.0
   geolocator: ^14.0.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  pedometer: ^4.0.2
   permission_handler: ^12.0.1
+  flutter_launcher_icons: ^0.14.4
+  shared_preferences: ^2.5.5
+  flutter_localizations:
+    sdk: flutter
 
 dev_dependencies:
   flutter_test:
@@ -54,7 +61,9 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
+  assets:
+    - assets/icon/
+    - assets/images/
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
@@ -90,3 +99,11 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/1779545955051.jpg"
+  min_sdk_android: 21
+  adaptive_icon_background: "#87CEEB"
+  adaptive_icon_foreground: "assets/icon/1779545955051.jpg"

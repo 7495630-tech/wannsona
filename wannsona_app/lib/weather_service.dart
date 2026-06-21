@@ -10,6 +10,7 @@ class WeatherData {
   final double precipitationMm;
   final String cityName;
   final String description;
+  final DateTime? sunsetTime;
 
   WeatherData({
     required this.temp,
@@ -19,6 +20,7 @@ class WeatherData {
     required this.precipitationMm,
     required this.cityName,
     required this.description,
+    this.sunsetTime,
   });
 }
 
@@ -41,6 +43,9 @@ class WeatherService {
         precipitationMm: data['rain'] != null ? (data['rain']['1h'] ?? 0.0).toDouble() : 0.0,
         cityName: data['name'] ?? '',
         description: data['weather'][0]['description'] ?? '',
+        sunsetTime: data['sys'] != null && data['sys']['sunset'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(data['sys']['sunset'] * 1000)
+            : null,
       );
     } else {
       throw Exception('天気データ取得失敗');

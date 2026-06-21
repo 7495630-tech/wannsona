@@ -1,0 +1,698 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'weather_service.dart';
+import 'road_temp_calculator.dart';
+import 'dog_profile_screen.dart';
+import 'my_dog_record_screen.dart';
+import 'breed_select_screen.dart';
+import 'breed_data.dart';
+
+void main() {
+  runApp(const WannsonaApp());
+}
+
+class WannsonaApp extends StatelessWidget {
+  const WannsonaApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'わんソナ',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4A90D9)),
+        useMaterial3: true,
+      ),
+      home: const HomeScreen(),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isLoading = true;
+  String _errorMessage = '';
+  WeatherData? _weather;
+
+  double get _temp => _weather?.feelsLike ?? 13.0;
+  
+  double get _roadTemp => RoadTempCalculator.calculate(
+    airTemp: _temp,
+    weatherIcon: _weather?.description ?? '',
+    hour: DateTime.now().hour,
+  );
+
+  String get _roadComment => RoadTempCalculator.getComment(_roadTemp);
+  String get _walkAdvice => RoadTempCalculator.getDogWalkAdvice(_roadTemp);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWeather();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkFirstLaunch());
+  }
+
+  Future<void> _checkFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool isFirst = prefs.getBool('first_launch') ?? true;
+    if (isFirst && mounted) {
+      await prefs.setBool('first_launch', false);
+      _showOnboardingDialog();
+    }
+  }
+
+
+
+  String _getWeatherIcon(String desc) {
+    final d = desc.toLowerCase();
+    if (d.contains('thunder')) return '⛈';
+    if (d.contains('rain') || d.contains('drizzle')) return '🌧';
+    if (d.contains('snow')) return '❄️';
+    if (d.contains('cloud')) return '☁️';
+    if (d.contains('clear')) return '☀️';
+    if (d.contains('mist') || d.contains('fog')) return '🌫';
+    return '🌤';
+  }
+
+  Color get _roadTempColor {
+    if (_roadTemp >= 60) return Colors.red.shade900;
+    if (_roadTemp >= 50) return const Color(0xFFE53935);
+    if (_roadTemp >= 40) return Colors.orange;
+    if (_roadTemp >= 35) return Colors.amber;
+    return Colors.green;
+  }
+  Widget _buildDrawer() {
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        final prefs = snapshot.data;
+        final dogName = prefs?.getString('dog_name') ?? 'まだ未登録';
+        final dogBreed = prefs?.getString('dog_breed') ?? '犬種未設定';
+        final dogWeight = prefs?.getString('dog_weight') ?? '-';
+        final dogBirthStr = prefs?.getString('dog_birth');
+        String dogAge = '-';
+        if (dogBirthStr != null) {
+          final birth = DateTime.tryParse(dogBirthStr);
+          if (birth != null) {
+            final age = DateTime.now().difference(birth).inDays ~/ 365;
+            dogAge = '$age歳';
+          }
+        }
+
+        return Drawer(
+          width: MediaQuery.of(context).size.width * 0.82,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // ユーザー情報エリア
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF2B5BA8), Color(0xFF4A90D9)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 56, height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.white24,
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                            child: const Icon(Icons.pets, color: Colors.white, size: 32),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(dogName, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 2),
+                                Text(dogBreed, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text('$dogAge  /  ${dogWeight}kg', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () { Navigator.pop(context); _showOnboardingDialog(); },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text('うちの子設定を編集', style: TextStyle(color: Colors.white, fontSize: 13)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // メニュー一覧
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      _drawerItem(Icons.pets, 'うちの子設定', () { Navigator.pop(context); _showOnboardingDialog(); }),
+                      _drawerItem(Icons.location_on, '地域・天気設定', () => Navigator.pop(context)),
+                      _drawerItem(Icons.notifications, '通知設定', () => Navigator.pop(context)),
+                      _drawerItem(Icons.star, 'お気に入りスポット', () => Navigator.pop(context)),
+                      _drawerItem(Icons.backpack, '持ち物・準備設定', () => Navigator.pop(context)),
+                      _drawerItem(Icons.book, '記録・履歴設定', () => Navigator.pop(context)),
+                      _drawerItem(Icons.settings, '表示設定', () => Navigator.pop(context)),
+                      const Divider(),
+                      _drawerItem(Icons.workspace_premium, 'プラン管理', () => Navigator.pop(context)),
+                      _drawerItem(Icons.help_outline, '使い方・ヘルプ', () => Navigator.pop(context)),
+                      _drawerItem(Icons.warning_amber, '注意事項', () {
+                        Navigator.pop(context);
+                        showDialog(context: context, builder: (_) => AlertDialog(
+                          title: const Text('注意事項'),
+                          content: const Text('わんソナは、診断・治療・医療相談を行うアプリではありません。\n\n犬種・体質・天気・季節・場所などをもとに、日々の確認や行動の目安を表示します。\n\n不明点や不安なことがある場合は、飼い主の判断で専門家へ相談してください。',
+                            style: TextStyle(fontSize: 14, height: 1.8),
+                          ),
+                          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('閉じる'))],
+                        ));
+                      }),
+                      _drawerItem(Icons.description, '利用規約・プライバシー', () => Navigator.pop(context)),
+                      _drawerItem(Icons.mail_outline, 'お問い合わせ', () => Navigator.pop(context)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _drawerItem(IconData icon, String title, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: const Color(0xFF2B5BA8), size: 22),
+      title: Text(title, style: const TextStyle(fontSize: 15)),
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey, size: 18),
+      onTap: onTap,
+    );
+  }
+
+  void _showOnboardingDialog() {
+    final nameController = TextEditingController();
+    final weightController = TextEditingController();
+    String selectedBreed = '';
+    DateTime? birthDate;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('🐾 うちの子を教えてください', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('名前', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(
+                    hintText: '例：ハナ',
+                    filled: true, fillColor: const Color(0xFFF5F0EB),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('犬種', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () async {
+                    final result = await Navigator.push(
+                      ctx,
+                      MaterialPageRoute(builder: (_) => const BreedSelectScreen()),
+                    );
+                    if (result != null) {
+                      setS(() { final b = result as dynamic; selectedBreed = (b.aliases as List).isNotEmpty ? b.aliases[0] as String : b.kana as String; });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F0EB),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          selectedBreed.isEmpty ? '犬種を選択する' : selectedBreed,
+                          style: TextStyle(color: selectedBreed.isEmpty ? Colors.grey : Colors.black87),
+                        ),
+                        const Icon(Icons.chevron_right, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('体重 (kg)', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: weightController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: '例：25',
+                    filled: true, fillColor: const Color(0xFFF5F0EB),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('誕生日', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: DateTime.now().subtract(const Duration(days: 365)),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) setS(() => birthDate = picked);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F0EB),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      birthDate == null ? 'タップして選択' : '${birthDate!.year}/${birthDate!.month}/${birthDate!.day}',
+                      style: TextStyle(color: birthDate == null ? Colors.grey : Colors.black87),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('あとで'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF8C42)),
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('dog_name', nameController.text);
+                await prefs.setString('dog_breed', selectedBreed);
+                await prefs.setString('dog_weight', weightController.text);
+                if (birthDate != null) {
+                  await prefs.setString('dog_birth', birthDate!.toIso8601String());
+                }
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('保存する', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadWeather() async {
+    setState(() { _isLoading = true; _errorMessage = ''; });
+    try {
+      final weather = await WeatherService().getCurrentWeather();
+      setState(() { _weather = weather; _isLoading = false; });
+    } catch (e) {
+      setState(() { _errorMessage = '天気を取得できませんでした'; _isLoading = false; });
+    }
+  }
+
+  String get _tempComment {
+    if (_temp >= 32) return 'ムシムシ〜！';
+    if (_temp >= 28) return 'かなり暑い';
+    if (_temp >= 24) return 'やや暑い';
+    if (_temp >= 18) return '快適！';
+    if (_temp >= 10) return 'やや寒い';
+    return '寒い！';
+  }
+
+  String get _tempEmoji {
+    final desc = _weather?.description ?? '';
+    if (desc.contains('Rain') || desc.contains('Drizzle')) return '🌧️';
+    if (desc.contains('Thunder')) return '⛈️';
+    if (desc.contains('Snow')) return '🌨️';
+    if (desc.contains('Clouds')) return '⛅';
+    if (_temp >= 28) return '☀️';
+    return '🌤️';
+  }
+
+  Color get _tempColor {
+    if (_temp >= 32) return const Color(0xFFFF6B35);
+    if (_temp >= 28) return Colors.orange;
+    if (_temp >= 24) return Colors.amber;
+    return const Color(0xFF4A90D9);
+  }
+
+  Color get _roadColor {
+    if (_roadTemp >= 60) return Colors.red.shade900;
+    if (_roadTemp >= 50) return const Color(0xFFE53935);
+    if (_roadTemp >= 40) return Colors.orange;
+    if (_roadTemp >= 35) return Colors.amber;
+    return const Color(0xFF4A90D9);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: _scaffoldKey,
+      drawer: _buildDrawer(),
+      backgroundColor: const Color(0xFFE8F4FD),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFE8F4FD),
+        elevation: 0,
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: const Icon(Icons.menu, color: Color(0xFF2B5BA8), size: 28),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
+        ),
+        title: const Text('わんソナ', style: TextStyle(color: Color(0xFF2B5BA8), fontSize: 26, fontWeight: FontWeight.w900)),
+        centerTitle: true,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh, color: Color(0xFF2B5BA8)), onPressed: _loadWeather),
+          const Padding(padding: EdgeInsets.only(right: 16), child: Icon(Icons.settings, color: Color(0xFF2B5BA8), size: 28)),
+        ],
+      ),
+      body: _currentIndex == 2
+          ? const MyDogRecordScreen()
+          : _currentIndex == 1
+              ? const Center(child: Text('お散歩 coming soon'))
+              : _currentIndex == 3
+                  ? const Center(child: Text('コミュニティ coming soon'))
+                  : _currentIndex == 4
+                      ? const Center(child: Text('思い出 coming soon'))
+                      : _isLoading
+                          ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(color: Color(0xFF4A90D9)), SizedBox(height: 16), Text('天気を取得中 ...🌤'),]))
+                          : _errorMessage.isNotEmpty
+                              ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('😢', style: TextStyle(fontSize: 48)), SizedBox(height: 16), Text(_errorMessage, textAlign: TextAlign.center), SizedBox(height: 24), ElevatedButton(onPressed: _loadWeather, child: const Text('再読み込み')),]))
+                              : RefreshIndicator(
+                                  onRefresh: _loadWeather,
+                                  child: SingleChildScrollView(
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(children: [
+                                      _buildWeatherCard(),
+                                      const SizedBox(height: 12),
+                                      _buildAdviceCard(),
+                                      const SizedBox(height: 12),
+                                      _buildTimelineCard(),
+                                      const SizedBox(height: 12),
+                                      _buildTodoRow(),
+                                      const SizedBox(height: 80),
+                                    ]),
+                                  ),
+                                ),
+            bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  Widget _buildWeatherCard() {
+    final sunset = _weather?.sunsetTime;
+    final sunsetStr = sunset != null
+        ? '${sunset!.hour.toString().padLeft(2, '0')}:${sunset.minute.toString().padLeft(2, '0')}'
+        : '--:--';
+    final weatherIcon = _getWeatherIcon(_weather?.description ?? '');
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      child: Column(children: [
+        Row(children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            const Text('体感温度', style: TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.bold)),
+            Text('${_temp.toStringAsFixed(0)}°C',
+                style: const TextStyle(fontSize: 52, fontWeight: FontWeight.bold, color: Color(0xFFFF6B35))),
+            Text(_roadComment, style: const TextStyle(fontSize: 15, color: Colors.black87)),
+          ])),
+          Expanded(child: Center(child: Text(weatherIcon, style: const TextStyle(fontSize: 56)))),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [
+            const Text('路面温度', style: TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.bold)),
+            Text('${_roadTemp.toStringAsFixed(0)}°C',
+                style: TextStyle(fontSize: 52, fontWeight: FontWeight.bold, color: _roadTempColor)),
+            Text(_roadComment, style: const TextStyle(fontSize: 15, color: Colors.black87)),
+          ])),
+        ]),
+        const SizedBox(height: 12),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Text('今日の日没 ', style: TextStyle(fontSize: 16, color: Colors.grey)),
+          Text(sunsetStr,
+              style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Color(0xFF7B2FBE))),
+          const Text('  暗くなる前に！', style: TextStyle(fontSize: 16, color: Colors.grey)),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _buildAdviceCard() {
+    final checkPoints = ['呼吸が荒い', '足裏が熱い', '食欲↓・水分↓'];
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('わんソナからのアドバイス',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text(_walkAdvice,
+            style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.black87)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            const Text('見るポイント：', style: TextStyle(fontSize: 13, color: Colors.grey)),
+            ...checkPoints.map((p) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(p, style: const TextStyle(fontSize: 12)),
+            )),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(children: [
+          Expanded(child: OutlinedButton(
+            onPressed: () {},
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFF4A90D9)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+            ),
+            child: const Text('チャットで相談する', style: TextStyle(color: Color(0xFF4A90D9), fontSize: 13)),
+          )),
+          const SizedBox(width: 8),
+          Expanded(child: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4A90D9),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+            ),
+            child: const Text('安全な散歩タイムを見る', style: TextStyle(color: Colors.white, fontSize: 13)),
+          )),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _buildTimelineCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE3F2FD),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text('快適時間  19:00〜21:00',
+                style: TextStyle(color: Color(0xFF1976D2), fontSize: 13, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFCE4EC),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text('次の快適時間  5:00〜6:00',
+                style: TextStyle(color: Color(0xFFC62828), fontSize: 13)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        const Text('本日のお散歩タイム目安',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        _buildTimeline(),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            _chip('あなた', const Color(0xFF4A90D9), Colors.white),
+            _chip('冷感タオル', Colors.grey.shade200, Colors.black87),
+            _chip('虫よけ', Colors.grey.shade200, Colors.black87),
+            _chip('帽子/キャップ', Colors.grey.shade200, Colors.black87),
+            _chip('わんこ', const Color(0xFF4A90D9), Colors.white),
+            _chip('水400ml以上', Colors.grey.shade200, Colors.black87),
+            _chip('LED首輪', Colors.grey.shade200, Colors.black87),
+            _chip('足拭きタオル', Colors.grey.shade200, Colors.black87),
+          ],
+        ),
+      ]),
+    );
+  }
+
+  Widget _chip(String label, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 12, color: fg)),
+    );
+  }
+
+  Widget _badge(String text, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(text, style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildTimeline() {
+    final colors = [Colors.grey.shade300, Colors.grey.shade300, Colors.orange.shade300, Colors.red.shade400, Colors.red.shade600, Colors.red.shade400, Colors.orange.shade300, Colors.blue.shade300, Colors.blue.shade600, Colors.blue.shade300, Colors.grey.shade400, Colors.grey.shade300];
+    final hours = ['5','7','9','11','13','15','17','19','21','23'];
+    return Column(children: [
+      Row(children: colors.map((c) => Expanded(child: Container(height: 20, color: c))).toList()),
+      const SizedBox(height: 4),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: hours.map((h) => Text(h, style: const TextStyle(fontSize: 10, color: Colors.grey))).toList()),
+    ]);
+  }
+
+
+
+  Widget _buildTodoRow() {
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(child: _buildTodoCard('今日のやること', '天気と体調ログから', [('🌙 夜散歩 20分　20:00〜', true), ('肉球クリーム塗る！', false), ('夜ご飯と一緒にお薬💊', false)], '他3件')),
+      const SizedBox(width: 10),
+      Expanded(child: _buildTodoCard('今月のやること', '', [('フィラリアのお薬貰う', true), ('お誕生日ケーキ予約🎂', true), ('', false)], null)),
+    ]);
+  }
+
+  Widget _buildTodoCard(String title, String sub, List<(String, bool)> items, String? more) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.blue.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+        if (sub.isNotEmpty) Text(sub, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        const SizedBox(height: 8),
+        ...items.asMap().entries.map((e) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(children: [
+            Text('${e.key + 1}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            const SizedBox(width: 4),
+            Expanded(child: Text(e.value.$1, style: const TextStyle(fontSize: 11))),
+            Icon(e.value.$2 ? Icons.check_box : Icons.check_box_outline_blank, size: 16, color: e.value.$2 ? const Color(0xFF4A90D9) : Colors.grey),
+          ]),
+        )),
+        const SizedBox(height: 6),
+        if (more != null)
+          OutlinedButton(
+            onPressed: () {},
+            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0), minimumSize: const Size(0, 28), side: const BorderSide(color: Color(0xFF4A90D9)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+            child: Text('リストを開く（$more）', style: const TextStyle(fontSize: 10, color: Color(0xFF4A90D9))),
+          )
+        else
+          Align(alignment: Alignment.centerRight, child: ElevatedButton(
+            onPressed: () {},
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4A90D9), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0), minimumSize: const Size(0, 28), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+            child: const Text('＋追加', style: TextStyle(color: Colors.white, fontSize: 11)),
+          )),
+      ]),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    final items = [('🏠', 'HOME'), ('🚶', 'お散歩'), ('🐕', 'うちの子記録'), ('👥', 'コミュニティ'), ('📖', '思い出')];
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2))]),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: items.asMap().entries.map((e) {
+              final selected = e.key == _currentIndex;
+              return GestureDetector(
+                onTap: () => setState(() => _currentIndex = e.key),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: selected ? const Color(0xFF4A90D9) : Colors.transparent, shape: BoxShape.circle),
+                    child: Text(e.value.$1, style: const TextStyle(fontSize: 22)),
+                  ),
+                  Text(e.value.$2, textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: selected ? const Color(0xFF4A90D9) : Colors.grey, fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+                ]),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+}
