@@ -6,3 +6,4 @@ wannsona_app/build/
 wannsona_app/.dart_tool/
 wannsona_app/.flutter-plugins
 wannsona_app/.flutter-plugins-dependencies
+*.apk
