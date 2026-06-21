@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'my_page_screen.dart';
 import 'package:http/http.dart' as http;
 import 'walk_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -586,7 +587,7 @@ body: Container(
               : _currentIndex == 3
                   ? const Center(child: Text('コミュニティ coming soon'))
                   : _currentIndex == 4
-                      ? const Center(child: Text('思い出 coming soon'))
+                      ? const MyPageScreen()
                       : _isLoading
                           ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(color: Color(0xFF4A90D9)), SizedBox(height: 16), Text('天気を取得中 ...🌤'),]))
                           : _errorMessage.isNotEmpty
