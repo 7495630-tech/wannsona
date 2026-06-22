@@ -272,12 +272,12 @@ GestureDetector(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: _dogBreed == 'MIX（ミックス犬）' ? Colors.orange : Colors.orange.shade200),
             ),
-            child: Row(children: const [
-              Text('🐾', style: TextStyle(fontSize: 20)),
-              SizedBox(width: 12),
+            child: Row(children: [
+              const Text('🐾', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('MIX（ミックス犬）の子はこちら', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                Text('MIXの子を選びたい方はこちらから', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                const Text('MIX（ミックス犬）の子はこちら', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                const Text('MIXの子を選びたい方はこちらから', style: TextStyle(fontSize: 11, color: Colors.grey)),
               ])),
               Icon(Icons.chevron_right, color: Colors.grey),
             ]),
