@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'my_page_screen.dart';
+import 'memories_screen.dart';
 import 'package:http/http.dart' as http;
 import 'walk_screen.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -585,7 +586,7 @@ body: Container(
           : _currentIndex == 1
               ? const WalkTopScreen()
               : _currentIndex == 3
-                  ? const Center(child: Text('コミュニティ coming soon'))
+                  ? const MemoriesScreen()
                   : _currentIndex == 4
                       ? const MyPageScreen()
                       : _isLoading
