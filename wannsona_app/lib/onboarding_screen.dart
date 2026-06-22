@@ -261,18 +261,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           );
         }).toList()),
         const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(color: const Color(0xFFFFF8F0), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.orange.shade200)),
-          child: Row(children: const [
-            Text('🐾', style: TextStyle(fontSize: 20)),
-            SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('MIX（ミックス犬）の子はこちら', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-              Text('MIXの子を選びたい方はこちらから', style: TextStyle(fontSize: 11, color: Colors.grey)),
-            ])),
-            Icon(Icons.chevron_right, color: Colors.grey),
-          ]),
+GestureDetector(
+          onTap: () {
+            setState(() { _dogBreed = 'MIX（ミックス犬）'; });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: _dogBreed == 'MIX（ミックス犬）' ? const Color(0xFFFFE8D0) : const Color(0xFFFFF8F0),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _dogBreed == 'MIX（ミックス犬）' ? Colors.orange : Colors.orange.shade200),
+            ),
+            child: Row(children: const [
+              Text('🐾', style: TextStyle(fontSize: 20)),
+              SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('MIX（ミックス犬）の子はこちら', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text('MIXの子を選びたい方はこちらから', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              ])),
+              Icon(Icons.chevron_right, color: Colors.grey),
+            ]),
+          ),
         ),
         const SizedBox(height: 14),
         Container(
