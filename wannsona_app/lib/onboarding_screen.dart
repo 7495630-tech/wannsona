@@ -261,9 +261,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           );
         }).toList()),
         const SizedBox(height: 14),
-GestureDetector(
-          onTap: () {
-            setState(() { _dogBreed = 'MIX（ミックス犬）'; });
+InkWell(
+          onTap: () async {
+            final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const BreedSelectScreen()));
+            if (result != null) {
+              setState(() { _dogBreed = 'MIX x ' + (result['name'] as String? ?? ''); });
+            }
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
