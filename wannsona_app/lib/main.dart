@@ -311,6 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
+                      _drawerItem(Icons.person, 'マイページ', () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const MyPageScreen())); }),
                       _drawerItem(Icons.pets, 'うちの子設定', () { Navigator.pop(context); _showOnboardingDialog(); }),
                       _drawerItem(Icons.location_on, '地域・天気設定', () => Navigator.pop(context)),
                       _drawerItem(Icons.notifications, '通知設定', () => Navigator.pop(context)),
@@ -586,9 +587,9 @@ body: Container(
           : _currentIndex == 1
               ? const WalkTopScreen()
               : _currentIndex == 3
-                  ? const MemoriesScreen()
+                  ? const Center(child: Text('行けるとこマップ coming soon'))
                   : _currentIndex == 4
-                      ? const MyPageScreen()
+                      ? const MemoriesScreen()
                       : _isLoading
                           ? const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(color: Color(0xFF4A90D9)), SizedBox(height: 16), Text('天気を取得中 ...🌤'),]))
                           : _errorMessage.isNotEmpty
