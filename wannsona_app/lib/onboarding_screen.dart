@@ -277,7 +277,11 @@ InkWell(
           onTap: () async {
             final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const BreedSelectScreen()));
             if (result != null) {
-              setState(() { _dogBreed = 'MIX x ' + (result['name'] as String? ?? ''); });
+              if (result is Map && result['id'] == 'unknown') {
+                setState(() { _dogBreed = '不明（体格でリスク判断）'; _dogBreedId = 'unknown'; });
+              } else if (result is Map) {
+                setState(() { _dogBreed = 'MIX x ' + (result['name'] as String? ?? ''); });
+              }
             }
           },
           child: Container(
