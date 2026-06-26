@@ -184,9 +184,18 @@ class _HomeScreenState extends State<HomeScreen> {
     // プロフィール読み込み
     final weightStr = prefs.getString('dog_weight') ?? '0';
     final birthStr = prefs.getString('dog_birth');
+    final breedId = prefs.getString('dog_breed_id') ?? '';
+    final weight = double.tryParse(weightStr) ?? 0;
+    // 犬種不明の場合は体重でサイズ分類してbreedを設定
+    String resolvedBreed = prefs.getString('dog_breed') ?? '';
+    if (breedId == 'unknown' && resolvedBreed.isEmpty) {
+      if (weight <= 5) resolvedBreed = '不明（小型犬相当）';
+      else if (weight <= 15) resolvedBreed = '不明（中型犬相当）';
+      else resolvedBreed = '不明（大型犬相当）';
+    }
     setState(() {
-      _dogWeight = double.tryParse(weightStr) ?? 0;
-      _dogBreed = prefs.getString('dog_breed') ?? '';
+      _dogWeight = weight;
+      _dogBreed = resolvedBreed.isNotEmpty ? resolvedBreed : prefs.getString('dog_breed') ?? '';
       if (birthStr != null) {
         final birth = DateTime.tryParse(birthStr);
         if (birth != null) _dogAgeYears = DateTime.now().difference(birth).inDays ~/ 365;

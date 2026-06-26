@@ -276,9 +276,7 @@ class _BreedSelectScreenState extends State<BreedSelectScreen> {
   Widget _unknownCard() {
     return GestureDetector(
       onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('犬種不明の登録は次のバージョンで対応予定です')),
-        );
+        Navigator.pop(context, {'name': '不明（体格でリスク判断）', 'id': 'unknown'});
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),

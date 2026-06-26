@@ -194,7 +194,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         GestureDetector(
           onTap: () async {
             final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const BreedSelectScreen()));
-            if (result != null && result is Breed) setState(() { _dogBreed = result.jaName; _dogBreedId = result.id; });
+            if (result != null) {
+              if (result is Breed) {
+                setState(() { _dogBreed = result.jaName; _dogBreedId = result.id; });
+              } else if (result is Map) {
+                setState(() { _dogBreed = result['name'] as String? ?? '不明'; _dogBreedId = result['id'] as String? ?? 'unknown'; });
+              }
+            }
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -211,7 +217,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         GestureDetector(
           onTap: () async {
             final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const BreedSelectScreen()));
-            if (result != null && result is Breed) setState(() { _dogBreed = result.jaName; _dogBreedId = result.id; });
+            if (result != null) {
+              if (result is Breed) {
+                setState(() { _dogBreed = result.jaName; _dogBreedId = result.id; });
+              } else if (result is Map) {
+                setState(() { _dogBreed = result['name'] as String? ?? '不明'; _dogBreedId = result['id'] as String? ?? 'unknown'; });
+              }
+            }
           },
           child: Container(
             padding: const EdgeInsets.all(16),
